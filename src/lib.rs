@@ -22,9 +22,12 @@
 //! }
 //! ```
 
+#[cfg(target_os = "macos")]
 pub mod kpc;
 pub mod kpep;
+#[cfg(target_os = "macos")]
 pub mod region;
 
+#[cfg(target_os = "macos")]
 pub use kpc::KpcManager;
 pub use kpep::KpepDatabase;

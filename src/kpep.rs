@@ -11,6 +11,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum KpepError {
+    #[error("On platforms other than macos, there is no default kpep database. Please pass a path to a kpep database")]
+    NoDefaultDatabase,
     #[error("kpep database not found for cpu_type=0x{cpu_type:x} cpu_subtype={cpu_subtype} cpu_family=0x{cpu_family:x}")]
     DatabaseNotFound {
         cpu_type: u32,
@@ -94,6 +96,7 @@ impl KpepDatabase {
     ///
     /// Discovers the current CPU type/family via sysctl and reads the matching
     /// database file from `/usr/share/kpep/`.
+    #[cfg(target_os = "macos")]
     pub fn load_current_cpu() -> Result<Self, KpepError> {
         let (cpu_type, cpu_subtype, cpu_family) = read_cpu_info()?;
         let path = find_database_path(cpu_type, cpu_subtype, cpu_family)?;
@@ -246,13 +249,14 @@ impl KpepDatabase {
             });
         }
 
-        events.sort_by(|a, b| a.name.cmp(&b.name));
+        events.sort_by_key(|a| a.number);
 
         Ok(KpepDatabase { name, cpu, events })
     }
 }
 
 /// Read CPU type, subtype, and family from sysctl.
+#[cfg(target_os = "macos")]
 fn read_cpu_info() -> Result<(u32, u32, u32), KpepError> {
     fn read_sysctl_u32(name: &str) -> Result<u32, KpepError> {
         let mut val: u32 = 0;
@@ -287,6 +291,7 @@ fn read_cpu_info() -> Result<(u32, u32, u32), KpepError> {
 }
 
 /// Find the kpep database file matching the given CPU identifiers.
+#[cfg(target_os = "macos")]
 fn find_database_path(
     cpu_type: u32,
     cpu_subtype: u32,
@@ -324,6 +329,7 @@ fn find_database_path(
 }
 
 // Need libc for sysctlbyname.
+#[cfg(target_os = "macos")]
 pub(crate) mod libc {
     extern "C" {
         pub fn sysctlbyname(
@@ -538,6 +544,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn load_current_cpu_succeeds() {
         // This test runs on macOS Apple Silicon only. It verifies the full
         // path: sysctl → find plist → parse events.

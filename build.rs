@@ -9,10 +9,7 @@ fn main() {
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
 
     if target_os != "macos" || target_arch != "aarch64" {
-        panic!(
-            "apmc only supports macOS on Apple Silicon (aarch64). \
-             Current target: {target_os}/{target_arch}"
-        );
+        return;
     }
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
