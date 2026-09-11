@@ -88,7 +88,7 @@ fn pick_style(no_color: bool) -> &'static Style {
 /// In system-wide mode (`-S`), reads global counters summed across all CPUs
 /// before and after the child process runs. The child drops root privileges
 /// when `SUDO_UID`/`SUDO_GID` environment variables are set.
-fn cmd_stat(
+pub fn cmd_stat(
     event_names: Vec<String>,
     system_wide: bool,
     region: bool,
@@ -205,7 +205,7 @@ fn cmd_stat(
         let pipe_read = pipe_fds.unwrap().0;
         let snap = read_all_inject_results(pipe_read, mgr.n_fixed())
             .ok_or("per-process counting failed: no results from inject dylib")?;
-        let zero = crate::kpc::CounterSnapshot {
+        let zero = apmc::kpc::CounterSnapshot {
             values: vec![0u64; snap.values.len()],
             n_fixed: snap.n_fixed,
         };

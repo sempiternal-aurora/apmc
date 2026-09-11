@@ -116,7 +116,7 @@ fn cmd_list(
     let db = match path {
         Some(path) => KpepDatabase::load_from_path(path),
         #[cfg(target_os = "macos")]
-        None => KpepDatabase::load_current_cpu(path),
+        None => KpepDatabase::load_current_cpu(),
         #[cfg(not(target_os = "macos"))]
         None => Err(apmc::kpep::KpepError::NoDefaultDatabase),
     }?;
