@@ -13,10 +13,12 @@ fn main() {
     }
 
     // Measured region.
+    #[cfg(target_os = "macos")]
     apmc::region::start();
     for i in 0..10_000_000u64 {
         std::hint::black_box(i * i);
     }
+    #[cfg(target_os = "macos")]
     apmc::region::stop();
 
     // More uncounted work.

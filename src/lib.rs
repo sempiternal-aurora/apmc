@@ -13,7 +13,7 @@
 //! - SIP disabled for full configurable counter access
 //!
 //! # Example
-//! ```no_run
+//! ```no_run,ignore-linux,ignore-windows
 //! use apmc::{KpcManager, kpep::KpepDatabase};
 //!
 //! let db = KpepDatabase::load_current_cpu().unwrap();

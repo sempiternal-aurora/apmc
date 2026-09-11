@@ -25,6 +25,7 @@ fn help_long_flag_exits_zero() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("list"));
+    #[cfg(target_os = "macos")]
     assert!(stdout.contains("stat"));
 }
 
@@ -37,6 +38,7 @@ fn no_args_exits_nonzero() {
 // ── list ──────────────────────────────────────────────────────────────────
 
 #[test]
+#[cfg(target_os = "macos")]
 fn list_shows_cpu_and_events() {
     let output = apmc().arg("list").output().unwrap();
     assert!(output.status.success(), "list should not require root");
@@ -46,6 +48,7 @@ fn list_shows_cpu_and_events() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 fn list_filter_narrows_results() {
     let all = apmc().arg("list").output().unwrap();
     let filtered = apmc().args(["list", "CACHE"]).output().unwrap();
@@ -59,6 +62,7 @@ fn list_filter_narrows_results() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 fn list_filter_no_match_shows_zero() {
     let output = apmc()
         .args(["list", "ZZZZZ_NO_MATCH_EVER_ZZZZZ"])
@@ -72,12 +76,14 @@ fn list_filter_no_match_shows_zero() {
 // ── stat ──────────────────────────────────────────────────────────────────
 
 #[test]
+#[cfg(target_os = "macos")]
 fn stat_no_command_exits_nonzero() {
     let output = apmc().arg("stat").output().unwrap();
     assert!(!output.status.success());
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 fn stat_help_shows_default_events() {
     let output = apmc().args(["stat", "--help"]).output().unwrap();
     assert!(output.status.success());
@@ -88,6 +94,7 @@ fn stat_help_shows_default_events() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 #[ignore] // Requires root: run with `sudo cargo test -- --ignored`
 fn stat_per_process_runs_true() {
     let output = apmc().args(["stat", "--", "true"]).output().unwrap();
@@ -99,6 +106,7 @@ fn stat_per_process_runs_true() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 #[ignore] // Requires root
 fn stat_system_wide_runs_true() {
     let output = apmc().args(["stat", "-s", "--", "true"]).output().unwrap();
@@ -109,6 +117,7 @@ fn stat_system_wide_runs_true() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 #[ignore] // Requires root
 fn stat_custom_events() {
     let output = apmc()
@@ -127,6 +136,7 @@ fn stat_custom_events() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 #[ignore] // Requires root
 fn stat_reports_nonzero_exit_status() {
     let output = apmc().args(["stat", "--", "false"]).output().unwrap();
@@ -137,6 +147,7 @@ fn stat_reports_nonzero_exit_status() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 fn stat_region_conflicts_with_system_wide() {
     let output = apmc()
         .args(["stat", "--region", "--system-wide", "--", "true"])
@@ -147,6 +158,7 @@ fn stat_region_conflicts_with_system_wide() {
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
+#[cfg(target_os = "macos")]
 fn extract_event_count(output: &str) -> usize {
     for line in output.lines() {
         if line.contains("events listed") {
