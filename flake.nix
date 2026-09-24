@@ -27,6 +27,9 @@
           name = "rust";
           packages = [
             pkgs.git
+            (pkgs.python3.withPackages (ps: [ ps.pandas ]))
+            pkgs.pyright
+            pkgs.ruff
           ];
           buildInputs = [
             (pkgs.rust-bin.stable.latest.default.override {

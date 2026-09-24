@@ -4,6 +4,7 @@
 //! available on a given CPU. Each file is a binary plist keyed by CPU type/family.
 
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 
 use plist::Value;
@@ -11,8 +12,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum KpepError {
-    #[error("On platforms other than macos, there is no default kpep database. Please pass a path to a kpep database")]
-    NoDefaultDatabase,
     #[error("kpep database not found for cpu_type=0x{cpu_type:x} cpu_subtype={cpu_subtype} cpu_family=0x{cpu_family:x}")]
     DatabaseNotFound {
         cpu_type: u32,
@@ -41,10 +40,10 @@ pub struct KpepEvent {
     pub description: String,
     /// PMC event number (the raw selector programmed into the counter config register).
     /// `None` for fixed counters that have no programmable event number.
-    pub number: Option<u64>,
+    pub number: Option<u16>,
     /// Bitmask of which configurable counter slots can count this event.
     /// `None` means any slot.
-    pub counters_mask: Option<u64>,
+    pub counters_mask: Option<u8>,
     /// Bitmask of which counters support PC capture (IP sampling) for this event.
     pub pc_capture_counters_mask: Option<u64>,
     /// If this is a fixed counter, its index (0 = cycles, 1 = instructions, etc.).
@@ -65,6 +64,31 @@ impl KpepEvent {
     }
 }
 
+impl Display for KpepEvent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "[")?;
+        match (self.number, self.fixed_counter) {
+            (Some(n), Some(fix)) => write!(f, "{n:#06x}, fixed {fix}"),
+            (Some(n), None) => write!(f, "{n:#06x}"),
+            (None, Some(fix)) => write!(f, "fixed {fix}"),
+            (None, None) => unreachable!("Events need at least one number"),
+        }?;
+        write!(f, "] {:<35} ", self.name)?;
+        if self.number.is_some() {
+            match self.counters_mask {
+                Some(mask) => write!(f, "(mask={mask:#04x}) "),
+                None => write!(f, "(any slot) "),
+            }?;
+        }
+        if self.fixed_counter.is_some() {
+            if let Some(fallback) = self.fallback.as_deref() {
+                write!(f, "({fallback}) ")?;
+            }
+        }
+        write!(f, "{}", self.description)
+    }
+}
+
 /// CPU metadata from the kpep database.
 #[derive(Debug, Clone)]
 pub struct CpuInfo {
@@ -78,6 +102,24 @@ pub struct CpuInfo {
     pub config_counters: u64,
     /// Event name aliases (e.g., "Cycles" -> "FIXED_CYCLES").
     pub aliases: HashMap<String, String>,
+}
+
+impl Display for CpuInfo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        writeln!(f, "CPU: {} ({})", self.marketing_name, self.architecture)?;
+        writeln!(
+            f,
+            "Fixed counters: {}, Configurable counters: {}",
+            self.fixed_counters, self.config_counters
+        )?;
+        if !self.aliases.is_empty() {
+            writeln!(f, "\nAliases:")?;
+            for (alias, target) in &self.aliases {
+                writeln!(f, "  {alias} -> {target}")?;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Parsed kpep database for a specific CPU.
@@ -219,11 +261,15 @@ impl KpepDatabase {
                 .unwrap_or("")
                 .to_string();
 
-            let number = ev_dict.get("number").and_then(|v| v.as_unsigned_integer());
+            let number = ev_dict
+                .get("number")
+                .and_then(|v| v.as_unsigned_integer())
+                .map(|n| n as u16);
 
             let counters_mask = ev_dict
                 .get("counters_mask")
-                .and_then(|v| v.as_unsigned_integer());
+                .and_then(|v| v.as_unsigned_integer())
+                .map(|n| n as u8);
 
             let pc_capture_counters_mask = ev_dict
                 .get("pc_capture_counters_mask")
@@ -252,6 +298,29 @@ impl KpepDatabase {
         events.sort_by_key(|a| a.number);
 
         Ok(KpepDatabase { name, cpu, events })
+    }
+}
+
+impl Display for KpepDatabase {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        writeln!(f, "{}", self.cpu)?;
+        let fixed: Vec<_> = self.fixed_events().collect();
+        if !fixed.is_empty() {
+            writeln!(f, "\nFixed counters:")?;
+            for event in &fixed {
+                writeln!(f, "  {event}")?;
+            }
+        }
+
+        writeln!(f, "\nConfigurable events:")?;
+        let mut count = 0;
+        for event in self.configurable_events() {
+            writeln!(f, "  {event}")?;
+            count += 1;
+        }
+        writeln!(f, "\n{count} events listed.")?;
+
+        Ok(())
     }
 }
 
@@ -359,7 +428,7 @@ mod tests {
         }
     }
 
-    fn make_config_event(name: &str, number: u64) -> KpepEvent {
+    fn make_config_event(name: &str, number: u16) -> KpepEvent {
         KpepEvent {
             name: name.to_string(),
             description: "configurable event".to_string(),

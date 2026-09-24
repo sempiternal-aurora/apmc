@@ -237,7 +237,7 @@ impl KpcManager {
         self.configured_events.clear();
         for &(orig_idx, slot) in &assignments {
             let event = configurable[orig_idx];
-            config[slot] = event.number.unwrap();
+            config[slot] = event.number.unwrap() as u64;
             self.configured_events.push(ConfiguredEvent {
                 name: event.name.clone(),
                 slot,
@@ -384,7 +384,7 @@ mod tests {
     use super::*;
     use crate::kpep::KpepEvent;
 
-    fn make_event(name: &str, number: u64, mask: Option<u64>) -> KpepEvent {
+    fn make_event(name: &str, number: u16, mask: Option<u8>) -> KpepEvent {
         KpepEvent {
             name: name.to_string(),
             description: String::new(),
@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn test_assign_slots_overflow() {
         let events: Vec<KpepEvent> = (0..10)
-            .map(|i| make_event(&format!("E{i}"), i as u64, None))
+            .map(|i| make_event(&format!("E{i}"), i as u16, None))
             .collect();
         let refs: Vec<&KpepEvent> = events.iter().collect();
         let result = KpcManager::assign_slots(&refs, 8);

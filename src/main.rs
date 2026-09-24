@@ -46,11 +46,10 @@ enum Commands {
     /// List available PMC events for the current CPU.
     List {
         /// Path to the kpep database plist
-        #[arg(short, long)]
+        #[cfg(target_os = "macos")]
         path: Option<std::path::PathBuf>,
-
-        /// Case-insensitive filter applied to event names and descriptions.
-        filter: Option<String>,
+        #[cfg(not(target_os = "macos"))]
+        path: std::path::PathBuf,
     },
 
     /// Measure hardware counters for a command (requires sudo).
@@ -86,7 +85,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::List { path, filter } => cmd_list(path.as_deref(), filter.as_deref()),
+        #[cfg(target_os = "macos")]
+        Commands::List { path } => cmd_list(path.as_deref()),
+        #[cfg(not(target_os = "macos"))]
+        Commands::List { path } => cmd_list(path),
         #[cfg(target_os = "macos")]
         Commands::Stat {
             events,
@@ -109,71 +111,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// configurable events, aliases, and counter slot masks. When `filter` is
 /// provided, only events whose name or description matches (case-insensitive)
 /// are shown.
-fn cmd_list(
-    path: Option<&std::path::Path>,
-    filter: Option<&str>,
-) -> Result<(), Box<dyn std::error::Error>> {
+#[cfg(target_os = "macos")]
+fn cmd_list(path: Option<&std::path::Path>) -> Result<(), Box<dyn std::error::Error>> {
     let db = match path {
         Some(path) => KpepDatabase::load_from_path(path),
-        #[cfg(target_os = "macos")]
         None => KpepDatabase::load_current_cpu(),
-        #[cfg(not(target_os = "macos"))]
-        None => Err(apmc::kpep::KpepError::NoDefaultDatabase),
     }?;
-
-    println!("CPU: {} ({})", db.cpu.marketing_name, db.cpu.architecture);
-    println!(
-        "Fixed counters: {}, Configurable counters: {}",
-        db.cpu.fixed_counters, db.cpu.config_counters
-    );
-
-    if !db.cpu.aliases.is_empty() {
-        println!("\nAliases:");
-        for (alias, target) in &db.cpu.aliases {
-            println!("  {alias} -> {target}");
-        }
-    }
-
-    let fixed: Vec<_> = db.fixed_events().collect();
-    if !fixed.is_empty() {
-        println!("\nFixed counters:");
-        for event in &fixed {
-            println!(
-                "  [fixed {}] {:<35} {}",
-                event.fixed_counter.unwrap_or(0),
-                event.name,
-                event.description
-            );
-        }
-    }
-
-    println!("\nConfigurable events:");
-    let mut count = 0;
-    for event in db.configurable_events() {
-        if let Some(pattern) = filter {
-            let pattern_lower = pattern.to_lowercase();
-            if !event.name.to_lowercase().contains(&pattern_lower)
-                && !event.description.to_lowercase().contains(&pattern_lower)
-            {
-                continue;
-            }
-        }
-
-        let mask_str = match event.counters_mask {
-            Some(mask) => format!("mask=0x{mask:x}"),
-            None => "any slot".to_string(),
-        };
-
-        println!(
-            "  [{:#04x}] {:<35} ({}) {}",
-            event.number.unwrap_or(0),
-            event.name,
-            mask_str,
-            event.description,
-        );
-        count += 1;
-    }
-    println!("\n{count} events listed.");
-
+    println!("{db}");
+    Ok(())
+}
+#[cfg(not(target_os = "macos"))]
+fn cmd_list(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    let db = KpepDatabase::load_from_path(path)?;
+    println!("{db}");
     Ok(())
 }
