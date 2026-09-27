@@ -303,7 +303,7 @@ impl KpepDatabase {
 
 impl Display for KpepDatabase {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        writeln!(f, "{}", self.cpu)?;
+        writeln!(f, "{}: {}", self.name, self.cpu)?;
         let fixed: Vec<_> = self.fixed_events().collect();
         if !fixed.is_empty() {
             writeln!(f, "\nFixed counters:")?;
